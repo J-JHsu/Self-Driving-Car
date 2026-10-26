@@ -130,5 +130,10 @@ CLAUDE.md                  project guide for Claude Code: commands, layout, rule
 ## Tests
 
 ```bash
-pytest
+python -m pytest
 ```
+
+149 automated tests cover the car physics, sensors, route finding, rewards,
+the Double DQN update, multi-car training, map saving and the UI. They run
+headless (no window, no GPU needed), so they work on any computer or in CI.
+The project was built test first: each feature starts as a failing test.
