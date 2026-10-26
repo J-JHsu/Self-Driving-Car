@@ -1,4 +1,4 @@
-# Self-driving car simulator - project guide for Claude Code
+# Self-driving car simulator
 
 Pygame car simulator plus a PyTorch Double DQN that learns to drive from a start point to a finish point on a map the user draws. Runs on Windows in VS Code. Built from two tutorial videos, then extended (route compass, placeable start/finish, pause, eraser, no-route mode).
 
