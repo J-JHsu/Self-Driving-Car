@@ -23,10 +23,10 @@ Pygame car simulator plus a PyTorch Double DQN that learns to drive from a start
 
 ## Key parameters (current values, all in `config.py`)
 - Map 1400x800 with a 170 px panel. START (100,400), GOAL (1300,400), GOAL_RADIUS 30.
-- State is 8 numbers: 5 sensors (-60..60 deg, /200 px), speed/120, route direction relative to heading (/pi), route distance/1600. With no route: direction/distance are straight-line to the finish, or 0 and 1 when there is no route.
+- State is 8 numbers: 5 sensors (-60..60 deg, /200 px), speed/140, route direction relative to heading (/pi), route distance/1600. With no route: direction/distance are straight-line to the finish, or 0 and 1 when there is no route.
 - 5 steering actions `STEER_MAP = [-1, -0.5, 0, 0.5, 1]`; gas and brake are rule-based, not learned.
 - Network 8 -> 64 -> 64 -> 5 (ReLU). Double DQN, gamma 0.99, Adam LR 3e-4, batch 64, replay 50,000, target update every 500 steps, epsilon 1.0 -> 0.05 with x0.9998 per step.
-- Rewards: goal +20, crash -10, stall -5 (120 steps), timeout -5 (3000 steps), progress +0.1 per pixel of route distance closed (negative when moving away), slow -0.05, closeness up to -1, fast and close -2.
+- Rewards: goal +20, crash -10, stall -5 (120 steps), timeout -5 (1800 steps), progress +0.1 per pixel of route distance closed (negative when moving away), slow -0.05, closeness up to -1, fast and close -2.
 - Route: 10 px grid, hard clearance 24 px (the car crashes at 20), soft cost zone 56 px.
 - Models save to `model.pt` (route mode) and `model_no_route.pt`.
 - Multi-car: `NUM_CARS` 8 (unmeasured default), `UPDATES_PER_LOOP` 2, capped at the number of cars. Steps, epsilon decay and target updates count transitions (one per car per loop). `train(num_cars=1)` is the function default; `main()` uses `NUM_CARS` or `--cars`.
