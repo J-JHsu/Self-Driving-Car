@@ -97,6 +97,26 @@ def test_act_random_when_epsilon_one():
     assert len({agent.act(state, 1.0) for _ in range(200)}) > 1
 
 
+def test_act_batch_returns_one_valid_action_per_state():
+    agent = DoubleDQNAgent()
+    states = [np.random.rand(config.STATE_DIM).astype(np.float32) for _ in range(6)]
+    actions = agent.act_batch(states, 0.3)
+    assert len(actions) == 6
+    assert all(isinstance(a, int) and 0 <= a < config.ACTION_DIM for a in actions)
+
+
+def test_act_batch_greedy_matches_act():
+    agent = DoubleDQNAgent()
+    states = [np.random.rand(config.STATE_DIM).astype(np.float32) for _ in range(20)]
+    assert agent.act_batch(states, 0.0) == [agent.act(s, 0.0) for s in states]
+
+
+def test_act_batch_random_when_epsilon_one():
+    agent = DoubleDQNAgent()
+    states = [np.zeros(config.STATE_DIM, dtype=np.float32)] * 200
+    assert len(set(agent.act_batch(states, 1.0))) > 1
+
+
 def test_save_load_roundtrip(tmp_path):
     path = str(tmp_path / "model.pt")
     a, b = DoubleDQNAgent(), DoubleDQNAgent()

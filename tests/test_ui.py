@@ -40,6 +40,44 @@ def test_draw_sensors_draws_rays():
     assert surface.get_at((int(car.x) + 40, int(car.y)))[:3] == config.SENSOR_COLOR
 
 
+def test_ghost_car_is_drawn_fainter():
+    solid, ghost = make_surface(), make_surface()
+    solid.fill((0, 0, 0))
+    ghost.fill((0, 0, 0))
+    car = Car()
+    car.x, car.y = 400.0, 300.0
+    car.draw(solid, config.AI_CAR_COLOR)
+    car.draw(ghost, config.AI_CAR_COLOR, alpha=config.GHOST_CAR_ALPHA)
+    full = solid.get_at((400, 300))[:3]
+    faint = ghost.get_at((400, 300))[:3]
+    assert full == config.AI_CAR_COLOR
+    assert 0 < sum(faint) < sum(full)
+
+
+def test_ai_window_draws_many_cars_and_lists_them():
+    from car_sim.vec_env import VecDrivingEnv
+    from self_driving_car_ai import _draw
+
+    screen = pygame.display.set_mode((config.GAME_W, config.GAME_H + config.PANEL_H))
+    font = pygame.font.Font(None, 24)
+    vec = VecDrivingEnv(World(), 5, use_route=True)
+    vec.reset()
+    for _ in range(30):
+        vec.step([0, 1, 2, 3, 4])
+    texts = []
+    real_panel = ui.draw_panel
+    ui.draw_panel = lambda s, f, lines: (texts.extend(lines), real_panel(s, f, lines))
+    try:
+        _draw(screen, font, vec, True, True, None, False, 3, 100.0, 50.0, 0.5, [True, False],
+              False, False)
+    finally:
+        ui.draw_panel = real_panel
+    assert any("Cars: 5" in t for t in texts)
+    limit = ui.WHEEL_CENTER[0] - ui.WHEEL_RADIUS - 10
+    assert all(font.size(t)[0] + 15 < limit for t in texts)
+    assert len(texts) <= ui.MAX_PANEL_LINES
+
+
 def test_read_keys():
     keys = defaultdict(bool)
     assert read_keys(keys) == (0.0, 0.0, 0.0)
@@ -190,8 +228,8 @@ def test_panel_text_never_reaches_the_controls():
     limit = ui.WHEEL_CENTER[0] - ui.WHEEL_RADIUS - 10
     worst_case_lines = list(ui.ALL_HINTS) + [
         "Score: 999999   Max score: 999999   Time: 9999.9s",
-        "Episode: 99999   Score: 3000   Max: 3000   Avg (last 20): 3000.0",
-        "Reached finish: 20 of last 20 episodes   Epsilon: 0.050   Speed: normal",
+        "Episode: 99999   Time alive: 3000.0s   Longest: 3000.0s   Avg time (last 20): 3000.0s",
+        "Reached finish: 20 of last 20 episodes   Epsilon: 0.050   Speed: normal   Cars: 64",
         "Click the map to place the FINISH  (Esc cancels)",
         "No route from start to finish: move a point or open a gap",
     ]

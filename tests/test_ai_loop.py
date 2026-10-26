@@ -3,8 +3,9 @@ import threading
 import time
 
 import pygame
+import pytest
 
-from self_driving_car_ai import train
+from self_driving_car_ai import parse_args, train
 
 
 def test_short_headless_training_runs(tmp_path):
@@ -129,6 +130,95 @@ def test_default_model_paths_differ_by_mode():
     from car_sim import config
 
     assert config.MODEL_PATH != config.MODEL_PATH_NO_ROUTE
+
+
+def test_multi_car_headless_training_runs(tmp_path):
+    path = str(tmp_path / "m.pt")
+    result = train(headless=True, max_steps=900, model_path=path, num_cars=3)
+    assert set(result) == {"episodes", "steps", "max_score", "goals", "no_route"}
+    assert result["steps"] == 900  # transitions: 300 loops x 3 cars
+    assert result["no_route"] is False
+    assert os.path.exists(path)
+
+
+def test_multi_car_counts_episodes_from_every_car(tmp_path):
+    from car_sim import config
+    from car_sim.world import World
+
+    world = World()
+    world.set_goal((config.START_X + 25, config.START_Y))  # every car wins in a step or two
+    result = train(headless=True, max_steps=60, model_path=str(tmp_path / "m.pt"),
+                   world=world, num_cars=3)
+    assert result["goals"] >= 3
+    assert result["episodes"] >= result["goals"]
+
+
+def test_epsilon_and_target_updates_count_transitions(tmp_path, monkeypatch):
+    from car_sim import config
+    from car_sim.dqn import DoubleDQNAgent
+
+    monkeypatch.setattr(config, "TARGET_UPDATE_STEPS", 10)
+    updates = {"n": 0}
+    real_update = DoubleDQNAgent.update_target
+
+    def counting_update(self):
+        updates["n"] += 1
+        real_update(self)
+
+    monkeypatch.setattr(DoubleDQNAgent, "update_target", counting_update)
+    path = str(tmp_path / "m.pt")
+    loops, cars = 20, 3
+    train(headless=True, max_steps=loops * cars, model_path=path, num_cars=cars)
+
+    meta = DoubleDQNAgent().load(path)
+    assert meta["epsilon"] == pytest.approx(config.EPS_START * config.EPS_DECAY ** (loops * cars))
+    assert updates["n"] == loops * cars // 10  # 6, not the 2 that counting loops would give
+
+
+def test_updates_per_loop_never_exceed_cars(tmp_path, monkeypatch):
+    from car_sim import config
+    from car_sim.dqn import DoubleDQNAgent
+
+    monkeypatch.setattr(config, "UPDATES_PER_LOOP", 2)
+    calls = {"n": 0}
+    real_step = DoubleDQNAgent.train_step
+
+    def counting_step(self):
+        calls["n"] += 1
+        return real_step(self)
+
+    monkeypatch.setattr(DoubleDQNAgent, "train_step", counting_step)
+    train(headless=True, max_steps=40, model_path=str(tmp_path / "a.pt"), num_cars=1)
+    assert calls["n"] == 40  # one car: one update per step, as before
+    calls["n"] = 0
+    train(headless=True, max_steps=40, model_path=str(tmp_path / "b.pt"), num_cars=4)
+    assert calls["n"] == 10 * 2  # 10 loops x UPDATES_PER_LOOP
+
+
+def test_multi_car_headless_no_route_returns(tmp_path):
+    from car_sim import config
+    from car_sim.world import World
+
+    world = World()
+    world.add_segment((1200, 0), (1200, config.GAME_H))
+    result = train(headless=True, max_steps=90, model_path=str(tmp_path / "m.pt"),
+                   world=world, num_cars=3)
+    assert result["no_route"] is True and result["steps"] == 0
+
+
+def test_windowed_multi_car_training_runs(tmp_path):
+    result = train(headless=False, max_steps=60, model_path=str(tmp_path / "m.pt"), num_cars=4)
+    assert result["steps"] == 60
+
+
+def test_command_line_cars_and_mode():
+    from car_sim import config
+
+    assert parse_args([]) == (True, config.NUM_CARS)
+    assert parse_args(["--cars", "4"]) == (True, 4)
+    assert parse_args(["--no-route", "--cars", "1"]) == (False, 1)
+    with pytest.raises(SystemExit):
+        parse_args(["--cars", "0"])
 
 
 def test_space_pauses_and_resumes_training(tmp_path):

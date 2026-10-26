@@ -48,13 +48,16 @@ def _wrap(angle):
 
 
 class DrivingEnv:
-    def __init__(self, world=None, random_spawn=None, use_route=True):
+    def __init__(self, world=None, random_spawn=None, use_route=True, route=None):
         self.world = world if world is not None else World()
         self.random_spawn = config.RANDOM_SPAWN if random_spawn is None else random_spawn
         self.car = Car()
         # use_route=False is the harder 'no route' mode: the car is told only the straight-line
         # direction and distance to the finish and has to learn to get around walls by itself.
-        self.route = RouteField() if use_route else StraightField()
+        # A given route is shared with other cars on the same world, so it is built only once.
+        if route is None:
+            route = RouteField() if use_route else StraightField()
+        self.route = route
         self.route_ok = False  # does the start currently have a route to the finish?
         self.outcome = ""      # "", "goal", "crash", "stall" or "timeout"
         self.steps = 0

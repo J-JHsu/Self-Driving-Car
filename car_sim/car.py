@@ -40,7 +40,8 @@ class Car:
         self.y += math.sin(self.angle) * self.speed * dt
         return math.hypot(self.x - old_x, self.y - old_y)
 
-    def draw(self, surface, color):
+    def draw(self, surface, color, alpha=255):
+        """alpha below 255 draws the car see-through (the extra cars in multi-car training)."""
         body = pygame.Surface((config.CAR_W, config.CAR_H), pygame.SRCALPHA)
         pygame.draw.rect(body, color, (0, 0, config.CAR_W, config.CAR_H))
         # A lighter strip at the front shows which way the car faces.
@@ -48,4 +49,6 @@ class Car:
         pygame.draw.rect(body, front, (config.CAR_W - 10, 2, 6, config.CAR_H - 4))
         # Pygame's y axis points down, so negate the angle to rotate the right way.
         rotated = pygame.transform.rotate(body, -math.degrees(self.angle))
+        if alpha < 255:
+            rotated.set_alpha(alpha)
         surface.blit(rotated, rotated.get_rect(center=(int(self.x), int(self.y))))

@@ -89,6 +89,14 @@ class DoubleDQNAgent:
             x = torch.as_tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
             return int(self.online(x).argmax(dim=1).item())
 
+    def act_batch(self, states, epsilon):
+        """act() for many cars: one forward pass, then each car explores on its own."""
+        with torch.no_grad():
+            x = torch.as_tensor(np.stack(states), dtype=torch.float32, device=self.device)
+            best = self.online(x).argmax(dim=1).tolist()
+        return [random.randrange(config.ACTION_DIM) if random.random() < epsilon else int(a)
+                for a in best]
+
     def remember(self, state, action, reward, next_state, done):
         self.buffer.push(state, action, reward, next_state, done)
 

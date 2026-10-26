@@ -45,7 +45,11 @@ MEMORY_SIZE = 50_000
 TARGET_UPDATE_STEPS = 500
 EPS_START = 1.0
 EPS_END = 0.05
-EPS_DECAY = 0.9998  # multiplied in every step
+EPS_DECAY = 0.9998  # multiplied in every step (one step = one car's transition)
+
+# --- Multi-car training -----------------------------------------------------
+NUM_CARS = 8          # cars driving at once in training (--cars overrides; 1 = the old single car)
+UPDATES_PER_LOOP = 2  # gradient steps per loop over all cars, capped at the number of cars
 
 # --- Controller rules around the chosen steering ----------------------------
 BRAKE_TRIGGER_DIST = 0.5   # front sensor (0-1) below this starts braking
@@ -97,6 +101,7 @@ BG_COLOR = (25, 25, 30)
 PANEL_COLOR = (40, 40, 50)
 HUMAN_CAR_COLOR = (60, 200, 90)
 AI_CAR_COLOR = (0, 200, 220)
+GHOST_CAR_ALPHA = 110  # opacity (0-255) of the AI cars other than the focus car
 OBSTACLE_COLOR = (230, 230, 230)
 SENSOR_COLOR = (255, 200, 0)
 TEXT_COLOR = (235, 235, 235)

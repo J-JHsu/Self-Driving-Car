@@ -1,6 +1,6 @@
 # Multi-car training (vectorized environments) - design
 
-Status: written for review. Nothing in this document is implemented yet.
+Status: implemented 2026-10-26 with the assumptions below (per-transition counting, `NUM_CARS = 8`). The "Measurements to decide the defaults" have not been run.
 
 ## Goal
 
