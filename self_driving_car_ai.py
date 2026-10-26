@@ -11,17 +11,21 @@ and is loaded automatically next time.
 straight-line direction and distance to the finish, so it must learn to get around walls by
 crashing into them. It uses its own file, model_no_route.pt.
 
+Ctrl+S saves the map (walls, start, finish) to maps/default.json, which is loaded at startup;
+`--map NAME` uses maps/NAME.json instead, and works together with --cars and --no-route.
+
 `--cars N` drives N cars at once (default config.NUM_CARS); they share one network and one
 replay buffer and pass through each other. `--cars 1` is the original single-car training.
 """
 import argparse
 import os
 import sys
+import time
 from collections import deque
 
 import pygame
 
-from car_sim import config, ui
+from car_sim import config, maps, ui
 from car_sim.dqn import DoubleDQNAgent
 from car_sim.vec_env import VecDrivingEnv
 from car_sim.world import World
@@ -30,7 +34,7 @@ NO_ROUTE_MESSAGE = "No route from start to finish: move a point or open a gap"
 
 
 def train(headless=False, max_steps=None, model_path=None, world=None, use_route=True,
-          num_cars=1):
+          num_cars=1, map_name=None):
     """Run the training loop.
 
     Returns {"episodes", "steps", "max_score", "goals", "no_route"}. Steps are transitions
@@ -38,10 +42,18 @@ def train(headless=False, max_steps=None, model_path=None, world=None, use_route
     loops, so it can be overshot by up to num_cars - 1. episodes and max_score carry over
     from a loaded model. headless=True skips the window; if the start has no route it then
     returns at once (no_route True), because nobody is there to fix the map.
+
+    Without a `world`, the map maps/<map_name>.json (default: maps/default.json) is loaded
+    into a new one if it exists; Ctrl+S saves the current map to that same file.
     """
     if model_path is None:
         model_path = config.MODEL_PATH if use_route else config.MODEL_PATH_NO_ROUTE
-    vec = VecDrivingEnv(world if world is not None else World(), num_cars, use_route)
+    message = None  # the Saved / Loaded line in the panel, shown for a few seconds
+    if world is None:
+        world = World()
+        message = maps.load_startup(world, map_name)
+    message_until = time.monotonic() + config.STATUS_MESSAGE_SECONDS
+    vec = VecDrivingEnv(world, num_cars, use_route)
     agent = DoubleDQNAgent()
     # More gradient steps than new transitions would just replay old data harder.
     updates_per_loop = min(num_cars, config.UPDATES_PER_LOOP)
@@ -87,6 +99,9 @@ def train(headless=False, max_steps=None, model_path=None, world=None, use_route
     def save():
         agent.save(model_path, {"epsilon": epsilon, "episode": episode, "max_score": max_score})
 
+    def status():
+        return message if message and time.monotonic() < message_until else ""
+
     try:
         while running and (max_steps is None or steps < max_steps):
             if not headless:
@@ -101,7 +116,10 @@ def train(headless=False, max_steps=None, model_path=None, world=None, use_route
                     placing = new_mode
                     if vec.world.start != before_start:
                         states = vec.reset()
-                    if event.type == pygame.KEYDOWN:
+                    if ui.is_save_event(event):
+                        message = maps.save_map(vec.world, map_name)
+                        message_until = time.monotonic() + config.STATUS_MESSAGE_SECONDS
+                    elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_v:
                             show_sensors = not show_sensors
                         elif event.key == pygame.K_p:
@@ -123,7 +141,7 @@ def train(headless=False, max_steps=None, model_path=None, world=None, use_route
                     break
                 if user_paused:
                     _draw(screen, font, vec, show_sensors, show_route, placing, fast, episode,
-                          max_score, avg_score, epsilon, recent_goals, paused, True)
+                          max_score, avg_score, epsilon, recent_goals, paused, True, status())
                     clock.tick(config.FPS)
                     continue
 
@@ -135,7 +153,7 @@ def train(headless=False, max_steps=None, model_path=None, world=None, use_route
                     break
                 paused = True
                 _draw(screen, font, vec, show_sensors, show_route, placing, fast, episode,
-                      max_score, avg_score, epsilon, recent_goals, paused, user_paused)
+                      max_score, avg_score, epsilon, recent_goals, paused, user_paused, status())
                 clock.tick(config.FPS)
                 continue
             if paused:  # the map was fixed: start clean episodes
@@ -179,7 +197,7 @@ def train(headless=False, max_steps=None, model_path=None, world=None, use_route
             if not headless:
                 if not fast or loops % 10 == 0:
                     _draw(screen, font, vec, show_sensors, show_route, placing, fast, episode,
-                          max_score, avg_score, epsilon, recent_goals, paused, user_paused)
+                          max_score, avg_score, epsilon, recent_goals, paused, user_paused, status())
                 if not fast:
                     clock.tick(config.FPS)
     finally:
@@ -192,7 +210,7 @@ def train(headless=False, max_steps=None, model_path=None, world=None, use_route
 
 
 def _draw(screen, font, vec, show_sensors, show_route, placing, fast, episode,
-          max_score, avg_score, epsilon, recent_goals, paused, user_paused):
+          max_score, avg_score, epsilon, recent_goals, paused, user_paused, message=""):
     # The first car is the focus car: route, sensors, controls and time alive are its own.
     env = vec.envs[0]
     ep_score = env.steps
@@ -222,6 +240,8 @@ def _draw(screen, font, vec, show_sensors, show_route, placing, fast, episode,
     ]
     if paused:
         lines.append(NO_ROUTE_MESSAGE)
+    if message:
+        lines.append(message)
     ui.draw_panel(screen, font, lines)
     if user_paused:
         ui.draw_status(screen, pygame.font.Font(None, 40), font, "PAUSED",
@@ -234,7 +254,7 @@ def _draw(screen, font, vec, show_sensors, show_route, placing, fast, episode,
 
 
 def parse_args(argv):
-    """Command line -> (use_route, num_cars)."""
+    """Command line -> (use_route, num_cars, map_name); map_name is None when --map is absent."""
     def car_count(text):
         n = int(text)
         if n < 1:
@@ -246,13 +266,16 @@ def parse_args(argv):
                         help="harder mode: only the straight line to the finish is known")
     parser.add_argument("--cars", type=car_count, default=config.NUM_CARS,
                         help=f"cars training at once (default {config.NUM_CARS})")
+    parser.add_argument("--map", type=maps.map_name_arg, metavar="NAME",
+                        help=f"use {config.MAPS_DIR}/NAME.json for loading and Ctrl+S "
+                             f"(default {config.DEFAULT_MAP})")
     args = parser.parse_args(argv)
-    return not args.no_route, args.cars
+    return not args.no_route, args.cars, args.map
 
 
 def main():
-    use_route, num_cars = parse_args(sys.argv[1:])
-    train(use_route=use_route, num_cars=num_cars)
+    use_route, num_cars, map_name = parse_args(sys.argv[1:])
+    train(use_route=use_route, num_cars=num_cars, map_name=map_name)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ PEDAL_BG = (60, 60, 70)
 
 HINT_DRAW = "Mouse: left-drag draws walls, right-drag erases"
 HINT_PLACE = "1: place start    2: place finish    Esc: cancel"
-HINT_VIEW = "P: route    V: sensors    C: clear    Space: pause"
+HINT_VIEW = "P: route    V: sensors    C: clear    Space: pause    Ctrl+S: save map"
 HINT_VIEW_AI = HINT_VIEW + "    F: fast"
 HINT_DRIVE = "Up/W gas   Down/S brake   Left/Right or A/D steer   R: restart"
 ALL_HINTS = (HINT_DRAW, HINT_PLACE, HINT_VIEW, HINT_VIEW_AI, HINT_DRIVE)
@@ -95,6 +95,12 @@ def draw_route(surface, points):
     if len(points) >= 2:
         pygame.draw.lines(surface, config.ROUTE_COLOR, False,
                           [(int(x), int(y)) for x, y in points], 2)
+
+
+def is_save_event(event):
+    """Ctrl+S (either Ctrl key). A plain S is not a save."""
+    return (event.type == pygame.KEYDOWN and event.key == pygame.K_s
+            and bool(event.mod & pygame.KMOD_CTRL))
 
 
 def handle_placement_event(event, world, mode):

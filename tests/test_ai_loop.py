@@ -214,9 +214,9 @@ def test_windowed_multi_car_training_runs(tmp_path):
 def test_command_line_cars_and_mode():
     from car_sim import config
 
-    assert parse_args([]) == (True, config.NUM_CARS)
-    assert parse_args(["--cars", "4"]) == (True, 4)
-    assert parse_args(["--no-route", "--cars", "1"]) == (False, 1)
+    assert parse_args([]) == (True, config.NUM_CARS, None)
+    assert parse_args(["--cars", "4"]) == (True, 4, None)
+    assert parse_args(["--no-route", "--cars", "1"]) == (False, 1, None)
     with pytest.raises(SystemExit):
         parse_args(["--cars", "0"])
 

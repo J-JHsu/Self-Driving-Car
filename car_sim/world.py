@@ -45,6 +45,16 @@ class World:
         self._seg_cache_len = -1
         self.version += 1  # start and goal are kept
 
+    def replace(self, obstacles, start, goal):
+        """Swap in a whole map (used when loading one). The version only ever goes up."""
+        self.obstacles[:] = [(tuple(a), tuple(b)) for a, b in obstacles]
+        self.start = tuple(start)
+        self.goal = tuple(goal)
+        self._prev_mouse = None
+        self._stroke_drew = False
+        self._seg_cache_len = -1
+        self.version += 1
+
     @staticmethod
     def _in_map(pos):
         return 0 <= pos[0] < config.GAME_W and 0 <= pos[1] < config.GAME_H

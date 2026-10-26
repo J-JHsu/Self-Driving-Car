@@ -15,8 +15,8 @@ START_X = 100
 START_Y = 400
 GOAL_X = 1300
 GOAL_Y = 400
-MAX_SPEED = 120.0
-MAX_ACCEL = 120.0
+MAX_SPEED = 140.0
+MAX_ACCEL = 140.0
 BRAKE_FORCE = 2.5  # braking is this many times stronger than acceleration
 FRICTION = 60.0
 MAX_STEER_RATE = math.radians(120)
@@ -73,7 +73,7 @@ START_HEADING_JITTER = math.radians(30)
 R_PROGRESS = 0.1           # per pixel of route progress (negative when moving away)
 R_GOAL = 20.0
 R_TIMEOUT = -5.0
-MAX_EPISODE_STEPS = 3000
+MAX_EPISODE_STEPS = 1800
 
 # --- Episode end ------------------------------------------------------------
 STALL_LIMIT = 120
@@ -95,6 +95,11 @@ BRAKE_HARD = 0.5
 MODEL_PATH = "model.pt"
 MODEL_PATH_NO_ROUTE = "model_no_route.pt"  # the --no-route mode learns a different task
 SAVE_EVERY_EPISODES = 5
+MAPS_DIR = "maps"          # saved maps are MAPS_DIR/NAME.json
+DEFAULT_MAP = "default"    # loaded at startup and written by Ctrl+S when --map is not given
+MAP_FORMAT_VERSION = 1     # bump when the map file layout changes
+MAP_NAME_MAX = 20          # longest --map name (keeps the panel message on screen)
+STATUS_MESSAGE_SECONDS = 4.0  # how long a Saved / Loaded message stays in the panel
 
 # --- Colors -----------------------------------------------------------------
 BG_COLOR = (25, 25, 30)

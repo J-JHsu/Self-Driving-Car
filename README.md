@@ -23,6 +23,8 @@ new ones (for example Python 3.14); `pip install pygame-ce` fixes that.
 python car_hum.py                # you drive
 python self_driving_car_ai.py    # the AI drives and trains live
 python self_driving_car_ai.py --no-route   # harder mode, see below
+python self_driving_car_ai.py --cars 4     # train with 4 cars at once
+python car_hum.py --map maze               # use maps/maze.json (works in both programs)
 ```
 
 The window is 1400 x 800 plus a control panel. To change the map size, edit
@@ -42,6 +44,7 @@ with them).
 | `P` | show/hide the shortest route | show/hide the shortest route |
 | `V` | show/hide sensors | show/hide sensors |
 | `C` | clear walls (start and finish stay) | clear walls (start and finish stay) |
+| `Ctrl+S` | save the map to `maps/default.json` (or `maps/NAME.json` with `--map NAME`) | same |
 | `Up`/`W`, `Down`/`S` | throttle, brake | (AI controls) |
 | `Left`/`A`, `Right`/`D` | steer | (AI controls) |
 | `R` | restart after a crash or a win | (restarts automatically) |
@@ -49,6 +52,21 @@ with them).
 
 The green dot is the start, the red circle is the finish. Reaching the circle
 wins. Placing a point does not draw a wall.
+
+## Saving and loading maps
+
+`Ctrl+S` writes the walls, start and finish to a JSON file in the `maps/` folder
+(created the first time you save) and shows "Saved maps/default.json" in the
+panel. `maps/default.json` is loaded automatically at startup if it exists. Use
+`--map NAME` with either program to load and save `maps/NAME.json` instead; it
+combines with `--cars` and `--no-route`. Names are up to 20 letters, digits, `_`
+or `-`. The folder is relative to where you run the program, like `model.pt`.
+
+A file is `{"version": 1, "walls": [[x1, y1, x2, y2], ...], "start": [x, y], "goal": [x, y]}`.
+If a map file you asked for with `--map` is missing, or any map file is damaged
+or from a newer version, the program shows a message in the panel and starts with
+the empty map instead of crashing. A missing `default.json` is not an error.
+The saved model is separate (`model.pt`) and is not tied to a map.
 
 ## How it works
 
@@ -90,10 +108,12 @@ car_sim/
   config.py        all constants
   car.py           car physics
   world.py         walls, start/finish points, sensor rays, collisions
+  maps.py          saving and loading maps as JSON
   route.py         shortest route around the walls to the finish
   ui.py            panel, steering wheel, pedals, markers, route overlay, placement keys
   driving_env.py   state, controller rules, rewards, episode end conditions
   dqn.py           network, replay buffer, Double DQN training
+maps/                      saved maps, maps/NAME.json (created by Ctrl+S)
 car_hum.py                 human-driven simulator
 self_driving_car_ai.py     AI-driven simulator with live training
 tests/                     headless tests (run: pytest)

@@ -4,12 +4,17 @@ Keys: Up/W throttle, Down/S brake, Left/A and Right/D steer,
 V toggle sensors, C clear obstacles, R restart after a crash or a win, Space pause,
 1 then click = place the start, 2 then click = place the finish (Esc cancels),
 P show the shortest route. Left-drag draws walls, right-drag erases them.
+Ctrl+S saves the map (walls, start, finish) to maps/default.json, which is loaded at startup.
+`python car_hum.py --map NAME` uses maps/NAME.json instead.
 """
+import argparse
 import math
+import sys
+import time
 
 import pygame
 
-from car_sim import config, ui
+from car_sim import config, maps, ui
 from car_sim.car import Car
 from car_sim.route import RouteField
 from car_sim.world import World
@@ -19,6 +24,8 @@ MOVE_THRESHOLD = 1.0  # pixels per frame needed to earn score
 
 def read_keys(keys):
     """Map held keys to (throttle, brake, steer)."""
+    if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
+        return 0.0, 0.0, 0.0  # a Ctrl+letter shortcut (Ctrl+S saves), not driving
     throttle = 1.0 if keys[pygame.K_UP] or keys[pygame.K_w] else 0.0
     brake = 1.0 if keys[pygame.K_DOWN] or keys[pygame.K_s] else 0.0
     steer = 0.0
@@ -27,6 +34,15 @@ def read_keys(keys):
     if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
         steer += 1.0
     return throttle, brake, steer
+
+
+def parse_args(argv):
+    """Command line -> the --map name (None when not given)."""
+    parser = argparse.ArgumentParser(description="Drive the car yourself.")
+    parser.add_argument("--map", type=maps.map_name_arg, metavar="NAME",
+                        help=f"use {config.MAPS_DIR}/NAME.json for loading and Ctrl+S "
+                             f"(default {config.DEFAULT_MAP})")
+    return parser.parse_args(argv).map
 
 
 class HumanGame:
@@ -65,7 +81,8 @@ class HumanGame:
             self.game_over = True
 
 
-def main():
+def main(argv=None):
+    map_name = parse_args(sys.argv[1:] if argv is None else argv)
     pygame.init()
     screen = pygame.display.set_mode((config.GAME_W, config.GAME_H + config.PANEL_H))
     pygame.display.set_caption("Human Car Game")
@@ -74,6 +91,9 @@ def main():
     clock = pygame.time.Clock()
 
     game = HumanGame()
+    message = maps.load_startup(game.world, map_name)
+    message_until = time.monotonic() + config.STATUS_MESSAGE_SECONDS
+    game.reset()  # the loaded start may be somewhere else
     route = RouteField()
     show_sensors = True
     show_route = False
@@ -97,7 +117,10 @@ def main():
             placing = new_mode
             if game.world.start != before[0]:
                 game.reset()
-            if event.type == pygame.KEYDOWN:
+            if ui.is_save_event(event):
+                message = maps.save_map(game.world, map_name)
+                message_until = time.monotonic() + config.STATUS_MESSAGE_SECONDS
+            elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_v:
                     show_sensors = not show_sensors
                 elif event.key == pygame.K_p:
@@ -144,6 +167,8 @@ def main():
         ]
         if not has_route:
             lines.append("No route from start to finish: move a point or open a gap")
+        if message and time.monotonic() < message_until:
+            lines.append(message)
         ui.draw_panel(screen, font, lines)
         if game.won:
             ui.draw_status(screen, big_font, font, "YOU WIN!",
